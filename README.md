@@ -111,8 +111,8 @@ The model achieved a balanced performance across most disease categories. Visual
 ## Acknowledgements
 
 The author expresses gratitude to:
-- **Prof. Dr. Millie Pant** for her insightful guidance and academic mentorship.
-- **Mr. Shubham Joshi** for technical assistance and feedback throughout the implementation phase.
+- **Prof. Dr. Millie Pant Ma'am** for her insightful guidance and academic mentorship.
+- ** Shubham Joshi Sir ** for technical assistance and feedback throughout the implementation phase.
 - **Google Colab** for enabling this research with accessible GPU resources.
 - The **Kaggle community** for providing the dataset essential to this study.
 
