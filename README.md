@@ -102,7 +102,7 @@ The model achieved a balanced performance across most disease categories. Visual
 - **Intern Name**: Pranav Sharma  
 - **Program**: B.Tech Computer Science & Engineering  
 - **Home Institute**: Jaypee Institute of Information Technology, Noida  
-- **Research Guide**: Prof. Dr. Millie Pant, Head of AMS Department  
+- **Research Guide**: Prof. Dr. Millie Pant, Head of AMSC Department  
 - **Host Institute**: Indian Institute of Technology (IIT) Roorkee  
 - **Internship Period**: June 9, 2025 – July 11, 2025  
 
