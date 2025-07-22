@@ -1380,7 +1380,7 @@ with torch.no_grad():
         count += 1
 
 if len(imgs) == 0:
-    print("⚠️ No valid Grad-CAM overlays were generated.")
+    print(" No valid Grad-CAM overlays were generated.")
 else:
     fig, axs = plt.subplots(len(imgs), 2, figsize=(6, 2 * len(imgs)))
     for i in range(len(imgs)):
@@ -1591,7 +1591,7 @@ with torch.no_grad():
         grid_size = int(math.sqrt(num_patches))
 
         if grid_size * grid_size != num_patches:
-            print(f"⚠️ Skipping: can't reshape {num_patches} into square grid.")
+            print(f" Skipping: can't reshape {num_patches} into square grid.")
             continue
 
         cls_attn = patch_attn.reshape(grid_size, grid_size)
