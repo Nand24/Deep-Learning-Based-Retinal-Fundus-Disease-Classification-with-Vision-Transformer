@@ -36,21 +36,36 @@ Timely detection of retinal diseases such as Diabetic Retinopathy, Glaucoma, and
 
 ---
 
+## Repository Structure
+
+- `Retinal-Fundus-ViT/` - main implementation folder containing modular scripts for training, evaluation, data loading, and visualization.
+- `Retinal-Fundus-ViT/README.md` - practical usage guide with Colab and local run instructions.
+- `Code For Vision Transformer.py` - original Colab training script, kept for reference or exploratory use.
+- `Google Colab Notebook.ipynb` - optional notebook for experiment tracking and interactive development.
+
+## How to Use This Repository
+
+1. Use `Retinal-Fundus-ViT/README.md` for runnable instructions and code execution.
+2. Place your dataset in the expected `Retinal-Fundus-ViT/data/` folder structure, or mount Drive in Colab and copy the data at runtime.
+3. Run training with `Retinal-Fundus-ViT/train.py` and evaluate with `Retinal-Fundus-ViT/evaluate.py`.
+
+---
+
 ## Methodology
 
 ### Model Configuration
 
-| Component         | Configuration                   |
-|------------------|----------------------------------|
-| Architecture      | ViT-Tiny (Patch size: 16×16)     |
-| Input Resolution  | 224×224                          |
-| Pretrained Weights| ImageNet-1K                      |
-| Optimizer         | AdamW                            |
-| Learning Rate Scheduler | CosineAnnealingLR         |
-| Loss Function     | Cross Entropy                    |
-| Epochs            | 30                               |
-| Batch Size        | 32                               |
-| Precision         | Mixed Precision (AMP)            |
+| Component            | Configuration                   |
+|---------------------|----------------------------------|
+| Architecture         | ViT-Tiny (Patch size: 16×16)     |
+| Input Resolution     | 224×224                          |
+| Pretrained Weights   | ImageNet-1K                      |
+| Optimizer            | AdamW                            |
+| Learning Rate Scheduler | CosineAnnealingLR          |
+| Loss Function        | Cross Entropy                    |
+| Epochs               | 30                               |
+| Batch Size           | 32                               |
+| Precision            | Mixed Precision (AMP)            |
 
 ### Training Protocol
 
@@ -58,6 +73,95 @@ Timely detection of retinal diseases such as Diabetic Retinopathy, Glaucoma, and
 - Training was conducted on Google Colab using available GPU resources.
 - Model checkpoints and training logs were recorded.
 - Visualization outputs such as Grad-CAM overlays and evaluation plots were saved for analysis.
+
+---
+
+## Project Structure
+
+- `Retinal-Fundus-ViT/config.py` - hyperparameters, dataset paths, and training configuration.
+- `Retinal-Fundus-ViT/dataset.py` - data loading and augmentation utilities.
+- `Retinal-Fundus-ViT/model.py` - ViT model creation and checkpoint helpers.
+- `Retinal-Fundus-ViT/train.py` - training loop with mixed precision and checkpointing.
+- `Retinal-Fundus-ViT/evaluate.py` - evaluation script with classification report and confusion matrix.
+- `Retinal-Fundus-ViT/visualize.py` - plotting utilities for training metrics and confusion matrices.
+- `Retinal-Fundus-ViT/gradcam.py` - attention-rollout style interpretability helper for ViT.
+- `Retinal-Fundus-ViT/utils.py` - seed, checkpoint, and logging helpers.
+- `Retinal-Fundus-ViT/requirements.txt` - Python dependencies.
+
+---
+
+## Quick Start
+
+### 1. Install dependencies
+
+```bash
+pip install -r Retinal-Fundus-ViT/requirements.txt
+```
+
+### 2. Prepare dataset folders
+
+Place your data in the following structure:
+
+```text
+Retinal-Fundus-ViT/data/train/<class_name>/*
+Retinal-Fundus-ViT/data/val/<class_name>/*
+Retinal-Fundus-ViT/data/test/<class_name>/*  # optional
+```
+
+### 3. Train the model
+
+```bash
+python Retinal-Fundus-ViT/train.py --epochs 30 --batch-size 32 --learning-rate 3e-4
+```
+
+### 4. Evaluate the model
+
+```bash
+python Retinal-Fundus-ViT/evaluate.py --checkpoint Retinal-Fundus-ViT/checkpoints/vit_epoch_30.pt
+```
+
+### 5. Evaluate on test data
+
+```bash
+python Retinal-Fundus-ViT/evaluate.py --checkpoint Retinal-Fundus-ViT/checkpoints/vit_epoch_30.pt --test --batch-size 32
+```
+
+---
+
+## Running in Google Colab
+
+If your dataset is stored on Google Drive and you want to run the project in Colab:
+
+1. Mount Google Drive:
+
+```python
+from google.colab import drive
+drive.mount('/content/drive')
+```
+
+2. Change directory to the repository path in Drive:
+
+```python
+%cd /content/drive/MyDrive/path/to/Deep-Learning-Based-Retinal-Fundus-Disease-Classification-with-Vision-Transformer
+```
+
+3. Install requirements:
+
+```python
+!pip install -r Retinal-Fundus-ViT/requirements.txt
+```
+
+4. Run training:
+
+```python
+!python Retinal-Fundus-ViT/train.py --epochs 30 --batch-size 32 --learning-rate 3e-4
+```
+
+5. Run evaluation:
+
+```python
+!python Retinal-Fundus-ViT/evaluate.py --checkpoint Retinal-Fundus-ViT/checkpoints/vit_epoch_30.pt --test --batch-size 32
+```
 
 ---
 
@@ -93,7 +197,6 @@ The model achieved a balanced performance across most disease categories. Visual
 - scikit-learn, TorchMetrics
 - OpenCV, matplotlib, seaborn
 - Google Colab (free-tier GPU with AMP support)
-
 
 ---
 

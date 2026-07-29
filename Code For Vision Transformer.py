@@ -1,262 +1,154 @@
-
+# Mount Google Drive in Google Colab to access the dataset and store checkpoints.
 from google.colab import drive
+from pathlib import Path
+import os
+import random
+import shutil
+import csv
+
+import torch
+import timm
+from torch import nn
+from torch.cuda.amp import autocast, GradScaler
+from torch.utils.data import DataLoader
+from torchvision import datasets, transforms
+from torchmetrics.classification import MulticlassAccuracy
+
+# Mount the Google Drive folder in Colab.
 drive.mount('/content/drive')
 
-import os, shutil
-from pathlib import Path
-import random
+# Paths for source dataset in Drive and local sampled copy.
+SRC_TRAIN = Path('/content/drive/MyDrive/retina_data/retinal_fundus_images/train')
+SRC_VAL = Path('/content/drive/MyDrive/retina_data/retinal_fundus_images/val')
+DST_TRAIN = Path('data/train')
+DST_VAL = Path('data/val')
 
-src_root = Path("/content/drive/MyDrive/retina_data/retinal_fundus_images/train")
-dst_root = Path("data/train")
-dst_root.mkdir(parents=True, exist_ok=True)
+# Training configuration.
+IMAGE_SIZE = 224
+BATCH_SIZE = 32
+EPOCHS = 30  # training can take ~90 minutes on Colab GPU
+LEARNING_RATE = 3e-4
+MODEL_NAME = 'vit_tiny_patch16_224'
 
-for cls in os.listdir(src_root):
-    src_class = src_root / cls
-    dst_class = dst_root / cls
-    dst_class.mkdir(parents=True, exist_ok=True)
+CKPT_DIR = Path('/content/drive/MyDrive/retina_ckpt')
+CKPT_DIR.mkdir(parents=True, exist_ok=True)
+LOGFILE = CKPT_DIR / 'log.csv'
+DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    all_imgs = os.listdir(src_class)
-    for img in random.sample(all_imgs, min(100, len(all_imgs))):
-        shutil.copy(src_class / img, dst_class / img)
 
-src_val = Path("/content/drive/MyDrive/retina_data/retinal_fundus_images/val")
-dst_val = Path("data/val")
-dst_val.mkdir(parents=True, exist_ok=True)
-
-for cls in os.listdir(src_val):
-    src_class = src_val / cls
-    dst_class = dst_val / cls
-    dst_class.mkdir(parents=True, exist_ok=True)
-
-    all_imgs = os.listdir(src_class)
-    for img in random.sample(all_imgs, min(40, len(all_imgs))):
-        shutil.copy(src_class / img, dst_class / img)
-
-import torch, timm, csv, time, pandas as pd
-from torchvision import datasets, transforms
-from torch.utils.data import DataLoader
-from torch import nn
-from torchmetrics.classification import MulticlassAccuracy
-
-BATCH_SIZE = 64
-IMAGE_SIZE = 64
-EPOCHS = 30  # will take ~90 mins
-CKPT_DIR = Path("/content/drive/MyDrive/retina_ckpt")
-CKPT_DIR.mkdir(exist_ok=True, parents=True)
-LOGFILE = CKPT_DIR / "log.csv"
-device = "cuda" if torch.cuda.is_available() else "cpu"
-
-train_tfms = transforms.Compose([
-    transforms.Resize((IMAGE_SIZE, IMAGE_SIZE)),
-    transforms.ToTensor(),
-    transforms.Normalize([0.5], [0.5])
-])
-val_tfms = train_tfms
-
-train_ds = datasets.ImageFolder("data/train", transform=train_tfms)
-val_ds = datasets.ImageFolder("data/val", transform=val_tfms)
-train_dl = DataLoader(train_ds, BATCH_SIZE, shuffle=True)
-val_dl = DataLoader(val_ds, BATCH_SIZE)
-
-model = timm.create_model("vit_tiny_patch16_64", pretrained=True, num_classes=len(train_ds.classes)).to(device)
-optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4)
-scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=EPOCHS)
-criterion = nn.CrossEntropyLoss()
-acc_metric = MulticlassAccuracy(num_classes=len(train_ds.classes)).to(device)
-scaler = torch.cuda.amp.GradScaler()
-
-if not LOGFILE.exists():
-    with open(LOGFILE, "w") as f: csv.writer(f).writerow(["epoch", "train_loss", "val_acc"])
-
-for epoch in range(EPOCHS):
-    model.train()
-    total_loss = 0
-    for x, y in train_dl:
-        x, y = x.to(device), y.to(device)
-        optimizer.zero_grad()
-        with torch.cuda.amp.autocast():
-            out = model(x)
-            loss = criterion(out, y)
-        scaler.scale(loss).backward()
-        scaler.step(optimizer)
-        scaler.update()
-        total_loss += loss.item() * x.size(0)
-
-    scheduler.step()
-    train_loss = total_loss / len(train_ds)
-
-    model.eval(); acc_metric.reset()z
-    with torch.no_grad(), torch.cuda.amp.autocast():
-        for x, y in val_dl:
-            x, y = x.to(device), y.to(device)
-            out = model(x)
-            acc_metric.update(out, y)
-    val_acc = acc_metric.compute().item()
-
-    with open(LOGFILE, "a") as f:
-        csv.writer(f).writerow([epoch+1, f"{train_loss:.4f}", f"{val_acc:.4f}"])
-    print(f"Epoch {epoch+1:02d} | Loss: {train_loss:.4f} | Acc: {val_acc:.4f}")
-
-!pip install -q timm torchmetrics
-
-import torch, timm, csv, time, pandas as pd
-from torchvision import datasets, transforms
-from torch.utils.data import DataLoader
-from torch import nn
-from torchmetrics.classification import MulticlassAccuracy
-
-BATCH_SIZE = 64
-IMAGE_SIZE = 64
-EPOCHS = 30  
-CKPT_DIR = Path("/content/drive/MyDrive/retina_ckpt")
-CKPT_DIR.mkdir(exist_ok=True, parents=True)
-LOGFILE = CKPT_DIR / "log.csv"
-device = "cuda" if torch.cuda.is_available() else "cpu"
-
-train_tfms = transforms.Compose([
-    transforms.Resize((IMAGE_SIZE, IMAGE_SIZE)),
-    transforms.ToTensor(),
-    transforms.Normalize([0.5], [0.5])
-])
-val_tfms = train_tfms
-
-train_ds = datasets.ImageFolder("data/train", transform=train_tfms)
-val_ds = datasets.ImageFolder("data/val", transform=val_tfms)
-train_dl = DataLoader(train_ds, BATCH_SIZE, shuffle=True)
-val_dl = DataLoader(val_ds, BATCH_SIZE)
-
-model = timm.create_model("vit_tiny_patch16_64", pretrained=True, num_classes=len(train_ds.classes)).to(device)
-optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4)
-scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=EPOCHS)
-criterion = nn.CrossEntropyLoss()
-acc_metric = MulticlassAccuracy(num_classes=len(train_ds.classes)).to(device)
-scaler = torch.cuda.amp.GradScaler()
-
-if not LOGFILE.exists():
-    with open(LOGFILE, "w") as f: csv.writer(f).writerow(["epoch", "train_loss", "val_acc"])
-
-for epoch in range(EPOCHS):
-    model.train()
-    total_loss = 0
-    for x, y in train_dl:
-        x, y = x.to(device), y.to(device)
-        optimizer.zero_grad()
-        with torch.cuda.amp.autocast():
-            out = model(x)
-            loss = criterion(out, y)
-        scaler.scale(loss).backward()
-        scaler.step(optimizer)
-        scaler.update()
-        total_loss += loss.item() * x.size(0)
-
-    scheduler.step()
-    train_loss = total_loss / len(train_ds)
-
-    model.eval(); acc_metric.reset()
-    with torch.no_grad(), torch.cuda.amp.autocast():
-        for x, y in val_dl:
-            x, y = x.to(device), y.to(device)
-            out = model(x)
-            acc_metric.update(out, y)
-    val_acc = acc_metric.compute().item()
-
-    with open(LOGFILE, "a") as f:
-        csv.writer(f).writerow([epoch+1, f"{train_loss:.4f}", f"{val_acc:.4f}"])
-    print(f"Epoch {epoch+1:02d} | Loss: {train_loss:.4f} | Acc: {val_acc:.4f}")
-
-import os, shutil, random
-from pathlib import Path
-
-SRC_TRAIN = Path("/content/drive/MyDrive/retina_data/retinal_fundus_images/train")
-SRC_VAL   = Path("/content/drive/MyDrive/retina_data/retinal_fundus_images/val")
-DST_TRAIN = Path("data/train")
-DST_VAL   = Path("data/val")
-
-def copy_subset(src_root, dst_root, n_per_class):
+def copy_subset(src_root: Path, dst_root: Path, n_per_class: int):
+    """Copy a fixed number of images per class from source to destination."""
     dst_root.mkdir(parents=True, exist_ok=True)
+
     for cls in os.listdir(src_root):
         src_cls = src_root / cls
         dst_cls = dst_root / cls
         dst_cls.mkdir(parents=True, exist_ok=True)
-        images = os.listdir(src_cls)
-        for img in random.sample(images, min(n_per_class, len(images))):
-            shutil.copy(src_cls / img, dst_cls / img)
 
-copy_subset(SRC_TRAIN, DST_TRAIN, 100)
-copy_subset(SRC_VAL, DST_VAL, 40)
+        image_files = os.listdir(src_cls)
+        for img_name in random.sample(image_files, min(n_per_class, len(image_files))):
+            shutil.copy(src_cls / img_name, dst_cls / img_name)
 
-from torchvision import datasets, transforms
-from torch.utils.data import DataLoader
 
-IMAGE_SIZE = 224
-BATCH_SIZE = 32
+def prepare_data():
+    """Prepare a local sampled dataset for training and validation."""
+    copy_subset(SRC_TRAIN, DST_TRAIN, n_per_class=100)
+    copy_subset(SRC_VAL, DST_VAL, n_per_class=40)
 
-transform = transforms.Compose([
-    transforms.Resize((IMAGE_SIZE, IMAGE_SIZE)),
-    transforms.RandomHorizontalFlip(),
-    transforms.RandomRotation(5),
-    transforms.ToTensor(),
-    transforms.Normalize([0.5], [0.5]),
-])
 
-train_ds = datasets.ImageFolder("data/train", transform=transform)
-val_ds   = datasets.ImageFolder("data/val",   transform=transform)
+def create_dataloaders():
+    """Create training and validation dataloaders with standard transforms."""
+    transform = transforms.Compose([
+        transforms.Resize((IMAGE_SIZE, IMAGE_SIZE)),
+        transforms.RandomHorizontalFlip(),
+        transforms.RandomRotation(5),
+        transforms.ToTensor(),
+        transforms.Normalize([0.5], [0.5]),
+    ])
 
-train_dl = DataLoader(train_ds, BATCH_SIZE, shuffle=True)
-val_dl   = DataLoader(val_ds, BATCH_SIZE)
+    train_dataset = datasets.ImageFolder(DST_TRAIN, transform=transform)
+    val_dataset = datasets.ImageFolder(DST_VAL, transform=transform)
 
-num_classes = len(train_ds.classes)
-print('Classes:', train_ds.classes)
+    train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=4, pin_memory=True)
+    val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=4, pin_memory=True)
 
-import torch, timm
-from torch import nn
-from torchmetrics.classification import MulticlassAccuracy
+    return train_loader, val_loader, train_dataset
 
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-model = timm.create_model('vit_tiny_patch16_224', pretrained=True, num_classes=num_classes).to(device)
-optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4)
-criterion = nn.CrossEntropyLoss()
-metric = MulticlassAccuracy(num_classes=num_classes).to(device)
-scaler = torch.cuda.amp.GradScaler()
+def build_model(num_classes: int):
+    """Create a ViT model pretrained on ImageNet."""
+    model = timm.create_model(MODEL_NAME, pretrained=True, num_classes=num_classes)
+    return model.to(DEVICE)
 
-EPOCHS = 30  # should complete in ~90 minutes
 
-import csv
-from pathlib import Path
+def init_log_file():
+    """Initialize the CSV log file if it does not exist."""
+    if not LOGFILE.exists():
+        with LOGFILE.open('w', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow(['epoch', 'train_loss', 'val_acc'])
 
-CKPT_DIR = Path('/content/drive/MyDrive/retina_ckpt_2h')
-CKPT_DIR.mkdir(exist_ok=True, parents=True)
-LOGFILE = CKPT_DIR / 'log.csv'
 
-if not LOGFILE.exists():
-    with open(LOGFILE, 'w') as f:
-        csv.writer(f).writerow(['epoch', 'train_loss', 'val_acc'])
+def train():
+    """Train the ViT model and log validation accuracy each epoch."""
+    prepare_data()
+    train_loader, val_loader, train_dataset = create_dataloaders()
+    num_classes = len(train_dataset.classes)
 
-for epoch in range(EPOCHS):
-    model.train()
-    total_loss = 0
-    for x, y in train_dl:
-        x, y = x.to(device), y.to(device)
-        optimizer.zero_grad()
-        with torch.cuda.amp.autocast():
-            out = model(x)
-            loss = criterion(out, y)
-        scaler.scale(loss).backward()
-        scaler.step(optimizer)
-        scaler.update()
-        total_loss += loss.item() * x.size(0)
+    print('Classes:', train_dataset.classes)
+    print('Using device:', DEVICE)
 
-    train_loss = total_loss / len(train_ds)
+    model = build_model(num_classes=num_classes)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=LEARNING_RATE)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=EPOCHS)
+    criterion = nn.CrossEntropyLoss()
+    metric = MulticlassAccuracy(num_classes=num_classes).to(DEVICE)
+    scaler = GradScaler()
 
-    model.eval()
-    metric.reset()
-    with torch.no_grad(), torch.cuda.amp.autocast():
-        for x, y in val_dl:
-            x, y = x.to(device), y.to(device)
-            out = model(x)
-            metric.update(out, y)
-    val_acc = metric.compute().item()
+    init_log_file()
+
+    for epoch in range(1, EPOCHS + 1):
+        model.train()
+        running_loss = 0.0
+
+        for images, labels in train_loader:
+            images = images.to(DEVICE, non_blocking=True)
+            labels = labels.to(DEVICE, non_blocking=True)
+
+            optimizer.zero_grad()
+            with autocast():
+                outputs = model(images)
+                loss = criterion(outputs, labels)
+
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
+
+            running_loss += loss.item() * images.size(0)
+
+        scheduler.step()
+        train_loss = running_loss / len(train_dataset)
+
+        model.eval()
+        metric.reset()
+        with torch.no_grad(), autocast():
+            for images, labels in val_loader:
+                images = images.to(DEVICE, non_blocking=True)
+                labels = labels.to(DEVICE, non_blocking=True)
+                outputs = model(images)
+                metric.update(outputs, labels)
+
+        val_acc = metric.compute().item()
+
+        with LOGFILE.open('a', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow([epoch, f'{train_loss:.4f}', f'{val_acc:.4f}'])
+
+        print(f'Epoch {epoch:02d}/{EPOCHS} - Train loss: {train_loss:.4f} - Val acc: {val_acc:.4f}')
+
+
+if __name__ == '__main__':
+    train()
 
     with open(LOGFILE, 'a') as f:
         csv.writer(f).writerow([epoch+1, f'{train_loss:.4f}', f'{val_acc:.4f}'])
